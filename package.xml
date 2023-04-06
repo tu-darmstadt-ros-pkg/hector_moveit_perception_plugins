@@ -1,0 +1,47 @@
+<package format="2">
+  <name>hector_moveit_perception_plugins</name>
+  <version>0.0.0</version>
+  <description>Custom plugins for the moveit perception pipeline</description>
+
+  <maintainer email="simon.giegerich@stud.tu-darmstadt.de">Simon Giegerich</maintainer>
+
+  <author email="simon.giegerich@stud.tu-darmstadt.de">Simon Giegerich</author>
+
+  <license>MIT</license>
+
+  <url type="repository">https://github.com/tu-darmstadt-ros-pkg/hector_moveit_perception_plugins</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>moveit_core</depend>
+  <depend>roscpp</depend>
+  <depend>rosconsole</depend>
+  <depend>urdf</depend>
+  <depend>message_filters</depend>
+  <depend version_gte="1.11.2">pluginlib</depend>
+  <depend>image_transport</depend>
+  <depend>glut</depend>
+  <depend>libglew-dev</depend>
+  <depend>libomp-dev</depend>
+  <depend>opengl</depend>
+  <depend>cv_bridge</depend>
+  <depend>sensor_msgs</depend>
+  <depend>moveit_msgs</depend>
+  <depend>object_recognition_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>moveit_ros_occupancy_map_monitor</depend>
+  <depend>moveit_ros_planning</depend>
+  <depend>nodelet</depend>
+
+  <build_depend>eigen</build_depend>
+
+  <test_depend>rosunit</test_depend>
+
+  <export>
+    <hector_moveit_perception_plugins plugin="${prefix}/pointcloud_octomap_updater_plugin_description.xml"/>
+  </export>
+
+</package>
