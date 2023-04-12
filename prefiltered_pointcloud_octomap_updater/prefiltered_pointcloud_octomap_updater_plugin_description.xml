@@ -1,0 +1,6 @@
+<library path="libprefiltered_pointcloud_octomap_updater">
+  <class name="occupancy_map_monitor/PrefilteredPointCloudOctomapUpdater" type="occupancy_map_monitor::PrefilteredPointCloudOctomapUpdater" base_class_type="occupancy_map_monitor::OccupancyMapUpdater">
+    <description>
+    </description>
+  </class>
+</library>

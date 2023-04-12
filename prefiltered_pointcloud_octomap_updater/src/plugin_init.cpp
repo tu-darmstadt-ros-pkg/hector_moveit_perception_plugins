@@ -23,7 +23,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2011, Willow Garage, Inc.
+ *  Copyright (c) 2008, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -54,70 +54,9 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Jon Binney, Ioan Sucan */
+/* Author: Ioan Sucan */
 
-#pragma once
+#include <class_loader/class_loader.hpp>
+#include <moveit/prefiltered_pointcloud_octomap_updater/prefiltered_pointcloud_octomap_updater.h>
 
-#include <ros/ros.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/message_filter.h>
-#include <message_filters/subscriber.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <moveit/occupancy_map_monitor/occupancy_map_updater.h>
-
-#include <memory>
-
-namespace occupancy_map_monitor
-{
-class PointCloudOctomapUpdater : public OccupancyMapUpdater
-{
-public:
-  PointCloudOctomapUpdater();
-  ~PointCloudOctomapUpdater() override;
-
-  bool setParams(XmlRpc::XmlRpcValue& params) override;
-
-  bool initialize() override;
-  void start() override;
-  void stop() override;
-  ShapeHandle excludeShape(const shapes::ShapeConstPtr& shape) override;
-  void forgetShape(ShapeHandle handle) override;
-
-protected:
-  virtual void updateMask(const sensor_msgs::PointCloud2& cloud, const Eigen::Vector3d& sensor_origin,
-                          std::vector<int>& mask);
-
-private:
-  bool getShapeTransform(ShapeHandle h, Eigen::Isometry3d& transform) const;
-  void cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
-  void stopHelper();
-
-  ros::NodeHandle root_nh_;
-  ros::NodeHandle private_nh_;
-
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
-  ros::Time last_update_time_;
-
-  /* params */
-  std::string point_cloud_topic_;
-  double scale_;
-  double padding_;
-  double max_range_;
-  unsigned int point_subsample_;
-  double max_update_rate_;
-  std::string filtered_cloud_topic_;
-  std::string ns_;
-  ros::Publisher filtered_cloud_publisher_;
-
-  message_filters::Subscriber<sensor_msgs::PointCloud2>* point_cloud_subscriber_;
-  tf2_ros::MessageFilter<sensor_msgs::PointCloud2>* point_cloud_filter_;
-
-  /* used to store all cells in the map which a given ray passes through during raycasting.
-     we cache this here because it dynamically pre-allocates a lot of memory in its contsructor */
-  octomap::KeyRay key_ray_;
-
-  std::vector<int> mask_;
-};
-}  // namespace occupancy_map_monitor
+CLASS_LOADER_REGISTER_CLASS(occupancy_map_monitor::PrefilteredPointCloudOctomapUpdater, occupancy_map_monitor::OccupancyMapUpdater)

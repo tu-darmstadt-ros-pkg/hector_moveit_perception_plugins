@@ -57,7 +57,7 @@
 /* Author: Jon Binney, Ioan Sucan */
 
 #include <cmath>
-#include <moveit/pointcloud_octomap_updater/pointcloud_octomap_updater.h>
+#include <moveit/prefiltered_pointcloud_octomap_updater/prefiltered_pointcloud_octomap_updater.h>
 #include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Vector3.h>
@@ -70,25 +70,25 @@
 namespace occupancy_map_monitor
 {
 static const std::string LOGNAME = "occupancy_map_monitor";
-PointCloudOctomapUpdater::PointCloudOctomapUpdater()
+PrefilteredPointCloudOctomapUpdater::PrefilteredPointCloudOctomapUpdater()
   : OccupancyMapUpdater("PointCloudUpdater")
-  , private_nh_("~")
-  , scale_(1.0)
-  , padding_(0.0)
-  , max_range_(std::numeric_limits<double>::infinity())
-  , point_subsample_(1)
-  , max_update_rate_(0)
-  , point_cloud_subscriber_(nullptr)
-  , point_cloud_filter_(nullptr)
+    , private_nh_("~")
+    , scale_(1.0)
+    , padding_(0.0)
+    , max_range_(std::numeric_limits<double>::infinity())
+    , point_subsample_(1)
+    , max_update_rate_(0)
+    , point_cloud_subscriber_(nullptr)
+    , point_cloud_filter_(nullptr)
 {
 }
 
-PointCloudOctomapUpdater::~PointCloudOctomapUpdater()
+PrefilteredPointCloudOctomapUpdater::~PrefilteredPointCloudOctomapUpdater()
 {
   stopHelper();
 }
 
-bool PointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue& params)
+bool PrefilteredPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue& params)
 {
   try
   {
@@ -116,21 +116,24 @@ bool PointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue& params)
   return true;
 }
 
-bool PointCloudOctomapUpdater::initialize()
+bool PrefilteredPointCloudOctomapUpdater::initialize()
 {
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>();
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, root_nh_);
+  shape_mask_ = std::make_unique<point_containment_filter::ShapeMask>();
+  shape_mask_->setTransformCallback(
+    [this](ShapeHandle shape, Eigen::Isometry3d& tf) { return getShapeTransform(shape, tf); });
 
   std::string prefix = "";
   if (!ns_.empty())
     prefix = ns_ + "/";
   if (!filtered_cloud_topic_.empty())
     filtered_cloud_publisher_ =
-        private_nh_.advertise<sensor_msgs::PointCloud2>(prefix + filtered_cloud_topic_, 10, false);
+      private_nh_.advertise<sensor_msgs::PointCloud2>(prefix + filtered_cloud_topic_, 10, false);
   return true;
 }
 
-void PointCloudOctomapUpdater::start()
+void PrefilteredPointCloudOctomapUpdater::start()
 {
   if (point_cloud_subscriber_)
     return;
@@ -141,42 +144,48 @@ void PointCloudOctomapUpdater::start()
     point_cloud_filter_ = new tf2_ros::MessageFilter<sensor_msgs::PointCloud2>(*point_cloud_subscriber_, *tf_buffer_,
                                                                                monitor_->getMapFrame(), 5, root_nh_);
     point_cloud_filter_->registerCallback(
-        [this](const sensor_msgs::PointCloud2::ConstPtr& cloud) { cloudMsgCallback(cloud); });
+      [this](const sensor_msgs::PointCloud2::ConstPtr& cloud) { cloudMsgCallback(cloud); });
     ROS_INFO_NAMED(LOGNAME, "Listening to '%s' using message filter with target frame '%s'", point_cloud_topic_.c_str(),
                    point_cloud_filter_->getTargetFramesString().c_str());
   }
   else
   {
     point_cloud_subscriber_->registerCallback(
-        [this](const sensor_msgs::PointCloud2::ConstPtr& cloud) { cloudMsgCallback(cloud); });
+      [this](const sensor_msgs::PointCloud2::ConstPtr& cloud) { cloudMsgCallback(cloud); });
     ROS_INFO_NAMED(LOGNAME, "Listening to '%s'", point_cloud_topic_.c_str());
   }
 }
 
-void PointCloudOctomapUpdater::stopHelper()
+void PrefilteredPointCloudOctomapUpdater::stopHelper()
 {
   delete point_cloud_filter_;
   delete point_cloud_subscriber_;
 }
 
-void PointCloudOctomapUpdater::stop()
+void PrefilteredPointCloudOctomapUpdater::stop()
 {
   stopHelper();
   point_cloud_filter_ = nullptr;
   point_cloud_subscriber_ = nullptr;
 }
 
-ShapeHandle PointCloudOctomapUpdater::excludeShape(const shapes::ShapeConstPtr& shape)
+ShapeHandle PrefilteredPointCloudOctomapUpdater::excludeShape(const shapes::ShapeConstPtr& shape)
 {
   ShapeHandle h = 0;
+  if (shape_mask_)
+    h = shape_mask_->addShape(shape, scale_, padding_);
+  else
+    ROS_ERROR_NAMED(LOGNAME, "Shape filter not yet initialized!");
   return h;
 }
 
-void PointCloudOctomapUpdater::forgetShape(ShapeHandle handle)
+void PrefilteredPointCloudOctomapUpdater::forgetShape(ShapeHandle handle)
 {
+  if (shape_mask_)
+    shape_mask_->removeShape(handle);
 }
 
-bool PointCloudOctomapUpdater::getShapeTransform(ShapeHandle h, Eigen::Isometry3d& transform) const
+bool PrefilteredPointCloudOctomapUpdater::getShapeTransform(ShapeHandle h, Eigen::Isometry3d& transform) const
 {
   ShapeTransformCache::const_iterator it = transform_cache_.find(h);
   if (it != transform_cache_.end())
@@ -186,12 +195,12 @@ bool PointCloudOctomapUpdater::getShapeTransform(ShapeHandle h, Eigen::Isometry3
   return it != transform_cache_.end();
 }
 
-void PointCloudOctomapUpdater::updateMask(const sensor_msgs::PointCloud2& /*cloud*/,
+void PrefilteredPointCloudOctomapUpdater::updateMask(const sensor_msgs::PointCloud2& /*cloud*/,
                                           const Eigen::Vector3d& /*sensor_origin*/, std::vector<int>& /*mask*/)
 {
 }
 
-void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
+void PrefilteredPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 {
   ROS_DEBUG_NAMED(LOGNAME, "Received a new point cloud message");
   ros::WallTime start = ros::WallTime::now();
@@ -239,6 +248,10 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
   if (!updateTransformCache(cloud_msg->header.frame_id, cloud_msg->header.stamp))
     return;
 
+  /* mask out points on the robot */
+  shape_mask_->maskContainment(*cloud_msg, sensor_origin_eigen, 0.0, max_range_, mask_);
+  updateMask(*cloud_msg, sensor_origin_eigen, mask_);
+
   octomap::KeySet free_cells, occupied_cells, model_cells, clip_cells;
   std::unique_ptr<sensor_msgs::PointCloud2> filtered_cloud;
 
@@ -285,18 +298,36 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
         /* check for NaN */
         if (!std::isnan(pt_iter[0]) && !std::isnan(pt_iter[1]) && !std::isnan(pt_iter[2]))
         {
-          tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3(pt_iter[0], pt_iter[1], pt_iter[2]);
-          occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
-          // build list of valid points if we want to publish them
-          if (filtered_cloud)
+          /* occupied cell at ray endpoint if ray is shorter than max range and this point
+             isn't on a part of the robot*/
+          if (mask_[row_c + col] == point_containment_filter::ShapeMask::INSIDE)
           {
-            **iter_filtered_x = pt_iter[0];
-            **iter_filtered_y = pt_iter[1];
-            **iter_filtered_z = pt_iter[2];
-            ++filtered_cloud_size;
-            ++*iter_filtered_x;
-            ++*iter_filtered_y;
-            ++*iter_filtered_z;
+            // transform to map frame
+            tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3(pt_iter[0], pt_iter[1], pt_iter[2]);
+            model_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+          }
+          else if (mask_[row_c + col] == point_containment_filter::ShapeMask::CLIP)
+          {
+            tf2::Vector3 clipped_point_tf =
+              map_h_sensor * (tf2::Vector3(pt_iter[0], pt_iter[1], pt_iter[2]).normalize() * max_range_);
+            clip_cells.insert(
+              tree_->coordToKey(clipped_point_tf.getX(), clipped_point_tf.getY(), clipped_point_tf.getZ()));
+          }
+          else
+          {
+            tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3(pt_iter[0], pt_iter[1], pt_iter[2]);
+            occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+            // build list of valid points if we want to publish them
+            if (filtered_cloud)
+            {
+              **iter_filtered_x = pt_iter[0];
+              **iter_filtered_y = pt_iter[1];
+              **iter_filtered_z = pt_iter[2];
+              ++filtered_cloud_size;
+              ++*iter_filtered_x;
+              ++*iter_filtered_y;
+              ++*iter_filtered_z;
+            }
           }
         }
       }

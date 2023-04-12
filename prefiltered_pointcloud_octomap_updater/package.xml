@@ -1,7 +1,7 @@
 <package format="2">
-  <name>hector_moveit_perception_plugins</name>
+  <name>prefiltered_pointcloud_octomap_updater</name>
   <version>0.0.0</version>
-  <description>Custom plugins for the moveit perception pipeline</description>
+  <description>The prefiltered_pointcloud_octomap_updater package</description>
 
   <maintainer email="simon.giegerich@stud.tu-darmstadt.de">Simon Giegerich</maintainer>
 
@@ -35,13 +35,12 @@
   <depend>moveit_ros_occupancy_map_monitor</depend>
   <depend>moveit_ros_planning</depend>
   <depend>nodelet</depend>
+  <depend>moveit_ros_perception</depend>
 
   <build_depend>eigen</build_depend>
 
-  <test_depend>rosunit</test_depend>
-
   <export>
-    <hector_moveit_perception_plugins plugin="${prefix}/pointcloud_octomap_updater_plugin_description.xml"/>
+    <moveit_ros_perception plugin="${prefix}/prefiltered_pointcloud_octomap_updater_plugin_description.xml"/>
+    <nodelet plugin="${prefix}/moveit_depth_self_filter.xml"/>
   </export>
-
 </package>
