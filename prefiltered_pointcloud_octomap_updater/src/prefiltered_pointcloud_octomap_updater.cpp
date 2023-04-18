@@ -236,13 +236,6 @@ void PrefilteredPointCloudOctomapUpdater::cloudMsgCallback( const sensor_msgs::P
 
   octomap::KeySet free_cells, occupied_cells;
 
-  // We only use these iterators if we are creating a filtered_cloud for
-  // publishing. We cannot default construct these, so we use unique_ptr's
-  // to defer construction
-  std::unique_ptr<sensor_msgs::PointCloud2Iterator<float>> iter_filtered_x;
-  std::unique_ptr<sensor_msgs::PointCloud2Iterator<float>> iter_filtered_y;
-  std::unique_ptr<sensor_msgs::PointCloud2Iterator<float>> iter_filtered_z;
-
   tree_->lockRead();
 
   try
@@ -261,9 +254,9 @@ void PrefilteredPointCloudOctomapUpdater::cloudMsgCallback( const sensor_msgs::P
         /* check for NaN */
         if ( !std::isnan( pt_iter[0] ) && !std::isnan( pt_iter[1] ) && !std::isnan( pt_iter[2] ))
         {
-          Eigen::Vector3d pt = Eigen::Vector3d( pt_iter[0], pt_iter[1], pt_iter[2] );
-          double dist = ( sensor_origin_eigen - pt ).norm();
-          if (dist < max_range_ && dist > min_range_) {
+          double dist = (sensor_origin_eigen - Eigen::Vector3d( pt_iter[0], pt_iter[1], pt_iter[2] )).norm();
+          if ( dist < max_range_ && dist > min_range_ )
+          {
             tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3( pt_iter[0], pt_iter[1], pt_iter[2] );
             occupied_cells.insert( tree_->coordToKey( point_tf.getX(), point_tf.getY(), point_tf.getZ()));
           }
