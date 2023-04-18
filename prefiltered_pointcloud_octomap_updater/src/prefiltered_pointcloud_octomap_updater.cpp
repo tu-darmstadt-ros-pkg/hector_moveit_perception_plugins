@@ -75,6 +75,7 @@ PrefilteredPointCloudOctomapUpdater::PrefilteredPointCloudOctomapUpdater()
   : OccupancyMapUpdater( "PrefilteredPointCloudOctomapUpdater" )
     , private_nh_( "~" )
     , max_range_( std::numeric_limits<double>::infinity())
+    , min_range_( 0.0 )
     , point_subsample_( 1 )
     , max_update_rate_( 0 )
     , point_cloud_subscriber_( nullptr )
@@ -96,6 +97,7 @@ bool PrefilteredPointCloudOctomapUpdater::setParams( XmlRpc::XmlRpcValue &params
     point_cloud_topic_ = static_cast<const std::string &>(params["point_cloud_topic"]);
 
     readXmlParam( params, "max_range", &max_range_ );
+    readXmlParam( params, "min_range", &min_range_ );
     readXmlParam( params, "point_subsample", &point_subsample_ );
     if ( params.hasMember( "max_update_rate" ))
       readXmlParam( params, "max_update_rate", &max_update_rate_ );
@@ -185,12 +187,6 @@ bool PrefilteredPointCloudOctomapUpdater::getShapeTransform( ShapeHandle h, Eige
   return it != transform_cache_.end();
 }
 
-void PrefilteredPointCloudOctomapUpdater::updateMask( const sensor_msgs::PointCloud2 & /*cloud*/,
-                                                      const Eigen::Vector3d & /*sensor_origin*/,
-                                                      std::vector<int> & /*mask*/)
-{
-}
-
 void PrefilteredPointCloudOctomapUpdater::cloudMsgCallback( const sensor_msgs::PointCloud2::ConstPtr &cloud_msg )
 {
   ROS_DEBUG_NAMED( LOGNAME, "Received a new point cloud message" );
@@ -265,8 +261,12 @@ void PrefilteredPointCloudOctomapUpdater::cloudMsgCallback( const sensor_msgs::P
         /* check for NaN */
         if ( !std::isnan( pt_iter[0] ) && !std::isnan( pt_iter[1] ) && !std::isnan( pt_iter[2] ))
         {
-          tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3( pt_iter[0], pt_iter[1], pt_iter[2] );
-          occupied_cells.insert( tree_->coordToKey( point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+          Eigen::Vector3d pt = Eigen::Vector3d( pt_iter[0], pt_iter[1], pt_iter[2] );
+          double dist = ( sensor_origin_eigen - pt ).norm();
+          if (dist < max_range_ && dist > min_range_) {
+            tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3( pt_iter[0], pt_iter[1], pt_iter[2] );
+            occupied_cells.insert( tree_->coordToKey( point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+          }
         }
       }
     }
