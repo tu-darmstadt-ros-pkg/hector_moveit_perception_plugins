@@ -1,0 +1,21 @@
+<package format="2">
+  <name>prefiltered_pointcloud_octomap_updater</name>
+  <version>0.0.0</version>
+  <description>The prefiltered_pointcloud_octomap_updater package</description>
+
+  <maintainer email="simon.giegerich@stud.tu-darmstadt.de">Simon Giegerich</maintainer>
+
+  <author email="simon.giegerich@stud.tu-darmstadt.de">Simon Giegerich</author>
+
+  <license>MIT</license>
+
+  <url type="repository">https://github.com/tu-darmstadt-ros-pkg/hector_moveit_perception_plugins</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>moveit_ros_perception</depend>
+
+  <export>
+    <moveit_ros_perception plugin="${prefix}/prefiltered_pointcloud_octomap_updater_plugin_description.xml"/>
+  </export>
+</package>
