@@ -254,12 +254,10 @@ void PrefilteredPointCloudOctomapUpdater::cloudMsgCallback( const sensor_msgs::P
         /* check for NaN */
         if ( !std::isnan( pt_iter[0] ) && !std::isnan( pt_iter[1] ) && !std::isnan( pt_iter[2] ))
         {
-          double dist = (sensor_origin_eigen - Eigen::Vector3d( pt_iter[0], pt_iter[1], pt_iter[2] )).norm();
+          tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3( pt_iter[0], pt_iter[1], pt_iter[2] );
+          double dist = (sensor_origin_eigen - Eigen::Vector3d( point_tf[0], point_tf[1], point_tf[2] )).norm();
           if ( dist < max_range_ && dist > min_range_ )
-          {
-            tf2::Vector3 point_tf = map_h_sensor * tf2::Vector3( pt_iter[0], pt_iter[1], pt_iter[2] );
             occupied_cells.insert( tree_->coordToKey( point_tf.getX(), point_tf.getY(), point_tf.getZ()));
-          }
         }
       }
     }
